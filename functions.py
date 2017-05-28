@@ -82,7 +82,7 @@ def parse_json(file):
                 track = item[key]
                 d_arts = collections.defaultdict(list)
                 
-                for i in track['artists']:
+                for i in track['artists']: # rename id -> artist id, coz it now overwrites track id, which hence dissapears
                     for k, v in i.items():
                         
                         if (k != 'external_urls'):
@@ -93,8 +93,8 @@ def parse_json(file):
                                     
                 track_sub = { k: track[k] for k in track_cols }     
                 track_sub['track_name'] = track_sub.pop('name')
+                track_sub['track_id'] = track_sub.pop('id')
             
-
         d = dict(track_sub, **d_arts)
         d.update(d_time)
         d.update(d_context)
