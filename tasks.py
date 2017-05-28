@@ -40,22 +40,22 @@ class spotify_clean_local(luigi.Task):
         return luigi.LocalTarget("clean_json/spotify_tracks_%s.json" % self.date.strftime('%Y-%m-%d') )
  
     def run(self):
-        data = parse_json2("json/spotify_tracks_%s.json" % self.date.strftime('%Y-%m-%d'))
+        data = parse_json("json/spotify_tracks_%s.json" % self.date.strftime('%Y-%m-%d'))
         with self.output().open('w') as out_file:
             json.dump(data, out_file)
             
-class spotify_clean_merge(luigi.Task):
+class spotify_merge_aws(luigi.Task):
     date = luigi.DateParameter(default = date.today()-timedelta(1))
 
-    #def requires(self):
-    #        return self.clone(spotify_local_file)
+    def requires(self):
+            return spotify_clean_local()
 
     def output(self):
         client = S3Client(host = 's3.us-east-2.amazonaws.com')
-        return S3Target('s3://myspotifydata/spotify_test_%s.json' % self.date.strftime('%Y-%m-%d'), client=client)
+        return S3Target('s3://myspotifydata/spotify_full_%s.json' % self.date.strftime('%Y-%m-%d'), client=client)
 
     def run(self):
-        data = merge_jsons('/Users/tamas/Documents/luigi/spotify/clean_json')
+        data = merge_jsons('/home/pi/home_iot/spotify/clean_json')
         with self.output().open('w') as out_file:
             json.dump(data, out_file)
 
