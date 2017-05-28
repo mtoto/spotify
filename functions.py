@@ -2,6 +2,7 @@ import requests
 import datetime
 import json
 import collections
+import os
 
 from spotify_creds import *
 
@@ -105,5 +106,31 @@ def parse_json(file):
                 
     return(result)
 
+""" Merge json files into one list of dicts from directory"""
+def merge_jsons(dir):
+    results = []
+    
+    for filename in os.listdir(dir):
+        if filename.endswith('.json'):
+            parsed = json_parser(dir+'/'+filename)
+            results.extend(parsed)
+            
+    result = {v['played_at']:v for v in results}.values()
+            
+    return result
+
+""" Merge json files into one list of dicts from list of filenames"""
+def update_json(list_of_files):
+    results = []
+    
+    for i in list_of_files:
+            parsed = json_parser(i)
+            results.extend(parsed)
+          
+    result = {v['played_at']:v for v in results}.values()
+
+    return result
+    
+          
 
 
