@@ -91,7 +91,10 @@ def parse_json(file):
                         elif (k == 'external_urls'):
                             d_arts['artist_urls'].append(v['spotify'])
                                     
-                track_sub = { k: track[k] for k in track_cols }     
+                d_arts['artist_id'] = d_arts.pop('id')
+                d_arts['artist_name'] = d_arts.pop('name')
+                
+                track_sub = { k: track[k] for k in track_cols }
                 track_sub['track_name'] = track_sub.pop('name')
                 track_sub['track_id'] = track_sub.pop('id')
             
