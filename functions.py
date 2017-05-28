@@ -3,6 +3,7 @@ import datetime
 import json
 import collections
 import os
+import boto3
 
 from spotify_creds import *
 
@@ -133,6 +134,21 @@ def update_json(list_of_files):
     result = {v['played_at']:v for v in results}.values()
 
     return result
+
+""" Get unique values for key from file in s3.
+    This will be come in handy creating dicts for
+    variables such as artist genre. """
+def get_unique_vals(bucket,filename,key):
+    
+    s3 = boto3.resource('s3')
+    content_object = s3.Object(bucket, filename)
+    file_content = content_object.get()['Body'].read().decode('utf-8')
+    json_content = json.loads(file_content)
+
+    t=[d[key] for d in json_content]
+    l=[item for sublist in t for item in sublist]
+    
+    return(l)
     
           
 
