@@ -42,6 +42,21 @@ class spotify_merge_aws(luigi.Task):
         data = merge_jsons('/home/pi/home_iot/spotify/clean_json')
         with self.output().open('w') as out_file:
             json.dump(data, out_file)
+            
+class spotify_get_artists(luigi.Task):
+    date = luigi.DateParameter(default = date.today()-timedelta(1))
+    
+    def requires(self):
+            return spotify_merge_aws()
+        
+    def run(self):
+        arts = artist_wrapper('spotify_full_%s.json' % self.date.strftime('%Y-%m-%d'))
+        with self.output().open('w') as out_file:
+            json.dump(arts, out_file)
+
+    def output(self):
+        client = S3Client(host = 's3.us-east-2.amazonaws.com')
+        return S3Target('s3://myspotifydata/spotify_artists_%s.json' % self.date.strftime('%Y-%m-%d'), client=client)
 
 if __name__ == '__main__':
     luigi.run()
