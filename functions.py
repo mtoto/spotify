@@ -148,6 +148,54 @@ def get_unique_vals(bucket,filename,key):
     
     return(l)
     
+def get_artists(list_of_artists):
+
+    accesToken = access_token()
+    headers = {'Authorization': 'Bearer ' + accesToken }
+    payload = {'limit': 50, 'ids': ','.join(list_of_artists) }
+    
+    response = requests.get("https://api.spotify.com/v1/artists", 
+                            headers = headers,
+                            params = payload)
+    data = response.json()
+
+    return data
+
+# thanks! https://stackoverflow.com/a/26945303/4964651
+def slice_per(source, limit):
+    step = int(math.floor(len(source) / limit))
+    return [source[i::step] for i in range(step)]
+
+def process_range(source, store=None):
+    
+    nested_arts = slice_per(source, 49)
+    store = []
+    
+    for ids in nested_artists:
+        store.append(get_artists(ids))
+        
+    return store
+
+def parse_artists(arts_resp):
+    
+    result = []
+    for item in arts_resp:
+        for a in item['artists']:
+            arts_dict = { k: a[k] for k in ['id','name','genres','popularity'] }
+            arts_dict['followers'] = a['followers']['total']
+            result.append(arts_dict)
+            
+    return(result)
+
+def artist_wrapper(file_s3):
+    
+    date_today = datetime.date.today() - datetime.timedelta(1)
+    list_of_artists = get_unique_vals('myspotifydata', 
+                                       file_s3,
+                                      'artist_id')
+    list_of_arts_resp = process_range(list_of_artists)
+    return parse_artists(list_of_arts_resp)
+
           
 
 
