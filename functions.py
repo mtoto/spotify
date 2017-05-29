@@ -172,7 +172,7 @@ def process_range(source, store=None):
     nested_arts = slice_per(source, 49)
     store = []
     
-    for ids in nested_artists:
+    for ids in nested_arts:
         store.append(get_artists(ids))
         
     return store
