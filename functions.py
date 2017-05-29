@@ -74,7 +74,6 @@ def parse_json(file):
         else:
             d_context = {'href' : None, 'spotify_external_url': None,
                          'type' : None, 'uri' : None, 'playlist_href': None}
-
         
         for key in item.keys():
             
@@ -83,7 +82,7 @@ def parse_json(file):
                 track = item[key]
                 d_arts = collections.defaultdict(list)
                 
-                for i in track['artists']: # rename id -> artist id, coz it now overwrites track id, which hence dissapears
+                for i in track['artists']: 
                     for k, v in i.items():
                         
                         if (k != 'external_urls'):
@@ -106,8 +105,7 @@ def parse_json(file):
         results.append(d)
         
         result = {v['played_at']:v for v in results}.values()
-
-                
+             
     return(result)
 
 """ Merge json files into one list of dicts from directory"""
