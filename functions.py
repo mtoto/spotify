@@ -68,7 +68,7 @@ def parse_json(file):
         if item['context'] is not None:
             
             d_context = item['context'] 
-            d_context['spotify_external_url'] = item['context']['external_urls']['spotify']
+            d_context['playlist_url'] = item['context']['external_urls']['spotify']
             d_context['playlist_href'] = item['context']['href'] # deal with other duplicate names
             d_context.pop('external_urls', None)
             d_context.pop('href', None)
