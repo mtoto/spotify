@@ -71,10 +71,11 @@ def parse_json(file):
             d_context['spotify_external_url'] = item['context']['external_urls']['spotify']
             d_context['playlist_href'] = item['context']['href'] # deal with other duplicate names
             d_context.pop('external_urls', None)
-            
+            d_context.pop('href', None)
+   
         else:
-            d_context = {'href' : None, 'spotify_external_url': None,
-                         'type' : None, 'uri' : None, 'playlist_href': None}
+            d_context = {'spotify_external_url': None, 'type' : None, 
+                         'uri' : None, 'playlist_href': None}
         
         for key in item.keys():
             
@@ -94,6 +95,8 @@ def parse_json(file):
                                     
                 d_arts['artist_id'] = d_arts.pop('id')
                 d_arts['artist_name'] = d_arts.pop('name')
+                d_arts['artist_href'] = d_arts.pop('href')
+
                 
                 track_sub = { k: track[k] for k in track_cols }
                 track_sub['track_name'] = track_sub.pop('name')
