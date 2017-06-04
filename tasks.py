@@ -28,11 +28,8 @@ class spotify_clean_local(luigi.Task):
         with self.output().open('w') as out_file:
             json.dump(data, out_file)
             
-class spotify_merge_aws(luigi.Task):
-    date = luigi.DateParameter(default = date.today()-timedelta(1))
-
-    def requires(self):
-            return spotify_clean_local()
+class spotify_merge_aws(luigi.ExternalTask):
+    date = luigi.DateParameter(default = date.today()-timedelta(1)) 
 
     def output(self):
         client = S3Client(host = 's3.us-east-2.amazonaws.com')
