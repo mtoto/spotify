@@ -137,21 +137,104 @@ def update_json(list_of_files):
 
     return result
 
-""" Get unique values for key from file in s3.
-    This will be come in handy creating dicts for
-    variables such as artist genre. """
-def get_unique_vals(bucket,filename,key):
+"""General functions"""
+
+def get_var_wrapper(file_s3, key, typeof1, typeof2, parse_function):
+    
+    date_today = datetime.date.today() - datetime.timedelta(1)
+    list_of_var = get_unique_vals('myspotifydata', 
+                                  filename=file_s3,
+                                  key=key,
+                                  typeof=typeof1)
+    list_of_var_resp = process_range(list_of_var,typeof=typeof2)
+    return parse_function(list_of_var_resp)
+
+# args for the three wrappers: 
+# 1. album :(files3, 'uri','string','albums',parse_albums)
+# 2. artist: (files3, 'artist_id', 'list', 'arts',parse_artists)
+# 3. playlist: (files3, 'playlist_href', 'url','playlist',parse_playlists)
+
+def get_unique_vals(bucket,filename,key, typeof = 'list'):
     
     s3 = boto3.resource('s3')
     content_object = s3.Object(bucket, filename)
     file_content = content_object.get()['Body'].read().decode('utf-8')
     json_content = json.loads(file_content)
+    
+    if (typeof=='list'):
+        t=[d[key] for d in json_content]
+        l=[item for sublist in t for item in sublist]
+        l2=[x for x in set(l) if x is not None]
+        result = l2
+        
+    elif(typeof=='url'):
+        t=[d[key] for d in json_content]
+        l=[x for x in set(t) if x is not None]
+        result=[x for x in l if 'null' not in x]
+        
+    elif(typeof=='string'):
+        t=[d[key] for d in json_content]
+        l=[x for x in set(t) if x is not None]
+        l2=[x for x in l if 'album' in x]
+        result=[s.partition('album:')[2] for s in l2 if 'album' in s]
+        
+    return(result)
 
-    t=[d[key] for d in json_content]
-    l=[item for sublist in t for item in sublist]
+# thanks! https://stackoverflow.com/a/26945303/4964651
+def slice_per(source, limit):
+    step = int(math.floor(len(source) / limit))
+    return [source[i::step] for i in range(step)]
+
+def process_range(source, typeof = 'arts'):
     
-    return(l)
+    store = []
+
+    if (typeof=='arts'):
+        nested_arts = slice_per(source, 49)
+        for ids in nested_arts:
+            store.append(get_artists(ids))
+            
+    elif (typeof=='playlist'):
+        for ids in source:
+            store.append(get_playlist(ids))
+            
+    elif (typeof=='albums'):
+        nested_albs = slice_per(source, 19)
+        for ids in nested_albs:
+            store.append(get_albums(ids))
+        
+    return store
+
+""" Playlist functions"""
+def get_playlist(href):
+
+    accesToken = access_token()
+    headers = {'Authorization': 'Bearer ' + accesToken }
+    params = {'fields': 'name,description,followers,href'}
+
+    response = requests.get(href,headers = headers,
+                                 params = params) 
+    data = response.json()
+
+    return data
+
+def parse_playlists(playlist_resps):
     
+    result = []
+    for a in playlist_resps:
+        if 'error' not in a.keys():
+            play_dict = { k: a[k] for k in ['description','href','name'] }
+            
+            play_dict['playlist_followers'] = a['followers']['total']
+            play_dict['playlist_descr'] = play_dict.pop('description')
+            play_dict['playlist_href'] = play_dict.pop('href')
+            play_dict['playlist_name'] = play_dict.pop('name')
+
+            result.append(play_dict)
+            
+    return(result)
+
+""" Artists funcs"""
 def get_artists(list_of_artists):
 
     accesToken = access_token()
@@ -165,41 +248,68 @@ def get_artists(list_of_artists):
 
     return data
 
-# thanks! https://stackoverflow.com/a/26945303/4964651
-def slice_per(source, limit):
-    step = int(math.floor(len(source) / limit))
-    return [source[i::step] for i in range(step)]
-
-def process_range(source, store=None):
-    
-    nested_arts = slice_per(source, 49)
-    store = []
-    
-    for ids in nested_arts:
-        store.append(get_artists(ids))
-        
-    return store
-
 def parse_artists(arts_resp):
     
     result = []
     for item in arts_resp:
         for a in item['artists']:
             arts_dict = { k: a[k] for k in ['id','name','genres','popularity'] }
-            arts_dict['followers'] = a['followers']['total']
+            
+            arts_dict['artist_followers'] = a['followers']['total']
+            arts_dict['artist_id'] = arts_dict.pop('id')
+            arts_dict['artist_name'] = arts_dict.pop('name')
+            arts_dict['artist_genres'] = arts_dict.pop('genres')
+            arts_dict['artist_popularity'] = arts_dict.pop('popularity')
+
             result.append(arts_dict)
             
     return(result)
 
-def artist_wrapper(file_s3):
-    
-    date_today = datetime.date.today() - datetime.timedelta(1)
-    list_of_artists = get_unique_vals('myspotifydata', 
-                                       file_s3,
-                                      'artist_id')
-    list_of_arts_resp = process_range(list_of_artists)
-    return parse_artists(list_of_arts_resp)
+"""Album funcs"""
+def get_albums(list_of_albums):
 
+    accesToken = access_token()
+    headers = {'Authorization': 'Bearer ' + accesToken }
+    payload = {'limit': 50, 'ids': ','.join(list_of_albums) }
+    
+    response = requests.get("https://api.spotify.com/v1/albums", 
+                            headers = headers,
+                            params = payload)
+    data = response.json()
+
+    return data
+
+def parse_albums(albs_resp):
+    
+    result = []
+    for item in albs_resp:
+        for a in item['albums']:
+            albs_dict = { k: a[k] for k in ['genres','name','popularity','release_date'] }
+            
+            albs_dict['album_genres'] = albs_dict.pop('genres')
+            albs_dict['album_name'] = albs_dict.pop('name')
+            albs_dict['album_popularity'] = albs_dict.pop('popularity')
+            albs_dict['album_release_date'] = albs_dict.pop('release_date')
+
+            d_arts = collections.defaultdict(list)
+            for i in a['artists']: 
+                    for k, v in i.items():
+                        
+                        if (k not in ('uri','type','external_urls')):
+                            d_arts[k].append(v)
+                            
+                        elif (k == 'external_urls'):
+                            d_arts['artist_album_urls'].append(v['spotify'])
+                                    
+            d_arts['album_artist_id'] = d_arts.pop('id')
+            d_arts['album_artist_name'] = d_arts.pop('name')
+            d_arts['album_artist_href'] = d_arts.pop('href')
+                
+            d = dict(albs_dict, **d_arts)
+    
+            result.append(d)
+            
+    return(result)
           
 
 
