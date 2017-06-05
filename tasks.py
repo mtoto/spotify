@@ -55,7 +55,7 @@ class spotify_get_var(luigi.Task):
 
     def output(self):
         client = S3Client(host = 's3.us-east-2.amazonaws.com')
-        return S3Target('s3://myspotifydata/spotify_%s.json' % self.date.strftime('%Y-%m-%d') + '_%s' % self.type_of_var,
+        return S3Target('s3://myspotifydata/spotify_%s.json' %  self.type_of_var + '_' + self.date.strftime('%Y-%m-%d') ,
                         client=client)
 
 if __name__ == '__main__':
