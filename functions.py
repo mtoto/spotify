@@ -139,7 +139,16 @@ def update_json(list_of_files):
 
 """General functions"""
 
-def get_var_wrapper(file_s3, key, typeof1, typeof2, parse_function):
+def get_var_wrapper(file_s3, type_of_var='artist'):
+    
+    if (type_of_var=='album'):
+        key, typeof1, typeof2, parse_function = ("uri","string","albums",parse_albums)
+    
+    elif (type_of_var=='artist'): 
+        key, typeof1, typeof2, parse_function = ("artist_id","list","arts",parse_artists)
+    
+    elif (type_of_var=='playlist'): 
+        key, typeof1, typeof2, parse_function = ("playlist_href","url","playlist",parse_playlists)
     
     date_today = datetime.date.today() - datetime.timedelta(1)
     list_of_var = get_unique_vals('myspotifydata', 
@@ -148,11 +157,6 @@ def get_var_wrapper(file_s3, key, typeof1, typeof2, parse_function):
                                   typeof=typeof1)
     list_of_var_resp = process_range(list_of_var,typeof=typeof2)
     return parse_function(list_of_var_resp)
-
-# args for the three wrappers: 
-# 1. album :(files3, 'uri','string','albums',parse_albums)
-# 2. artist: (files3, 'artist_id', 'list', 'arts',parse_artists)
-# 3. playlist: (files3, 'playlist_href', 'url','playlist',parse_playlists)
 
 def get_unique_vals(bucket,filename,key, typeof = 'list'):
     
