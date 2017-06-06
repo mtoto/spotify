@@ -194,7 +194,7 @@ def process_range(source, typeof = 'arts'):
     store = []
 
     if (typeof=='arts'):
-        nested_arts = slice_per(source, 49)
+        nested_arts = slice_per(source, 48)
         for ids in nested_arts:
             store.append(get_artists(ids))
             
@@ -203,7 +203,7 @@ def process_range(source, typeof = 'arts'):
             store.append(get_playlist(ids))
             
     elif (typeof=='albums'):
-        nested_albs = slice_per(source, 19)
+        nested_albs = slice_per(source, 18)
         for ids in nested_albs:
             store.append(get_albums(ids))
         
@@ -256,14 +256,15 @@ def parse_artists(arts_resp):
     
     result = []
     for item in arts_resp:
-        for a in item['artists']:
-            arts_dict = { k: a[k] for k in ['id','name','genres','popularity'] }
+        if 'error' not in a.keys():
+            for a in item['artists']:
+                arts_dict = { k: a[k] for k in ['id','name','genres','popularity'] }
             
-            arts_dict['artist_followers'] = a['followers']['total']
-            arts_dict['artist_id'] = arts_dict.pop('id')
-            arts_dict['artist_name'] = arts_dict.pop('name')
-            arts_dict['artist_genres'] = arts_dict.pop('genres')
-            arts_dict['artist_popularity'] = arts_dict.pop('popularity')
+                arts_dict['artist_followers'] = a['followers']['total']
+                arts_dict['artist_id'] = arts_dict.pop('id')
+                arts_dict['artist_name'] = arts_dict.pop('name')
+                arts_dict['artist_genres'] = arts_dict.pop('genres')
+                arts_dict['artist_popularity'] = arts_dict.pop('popularity')
 
             result.append(arts_dict)
             
@@ -287,14 +288,15 @@ def parse_albums(albs_resp):
     
     result = []
     for item in albs_resp:
-        for a in item['albums']:
-            albs_dict = { k: a[k] for k in ['id','genres','name','popularity','release_date'] }
+        if 'error' not in a.keys():
+            for a in item['albums']:
+                albs_dict = { k: a[k] for k in ['id','genres','name','popularity','release_date'] }
             
-            albs_dict['album_genres'] = albs_dict.pop('genres')
-            albs_dict['album_id'] = albs_dict.pop('id')
-            albs_dict['album_name'] = albs_dict.pop('name')
-            albs_dict['album_popularity'] = albs_dict.pop('popularity')
-            albs_dict['album_release_date'] = albs_dict.pop('release_date')
+                albs_dict['album_genres'] = albs_dict.pop('genres')
+                albs_dict['album_id'] = albs_dict.pop('id')
+                albs_dict['album_name'] = albs_dict.pop('name')
+                albs_dict['album_popularity'] = albs_dict.pop('popularity')
+                albs_dict['album_release_date'] = albs_dict.pop('release_date')
 
             d_arts = collections.defaultdict(list)
             for i in a['artists']: 
@@ -316,5 +318,3 @@ def parse_albums(albs_resp):
             
     return(result)
           
-
-
