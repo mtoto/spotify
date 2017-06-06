@@ -288,9 +288,10 @@ def parse_albums(albs_resp):
     result = []
     for item in albs_resp:
         for a in item['albums']:
-            albs_dict = { k: a[k] for k in ['uri','genres','name','popularity','release_date'] }
+            albs_dict = { k: a[k] for k in ['id','genres','name','popularity','release_date'] }
             
             albs_dict['album_genres'] = albs_dict.pop('genres')
+            albs_dict['album_id'] = albs_dict.pop('id')
             albs_dict['album_name'] = albs_dict.pop('name')
             albs_dict['album_popularity'] = albs_dict.pop('popularity')
             albs_dict['album_release_date'] = albs_dict.pop('release_date')
