@@ -256,7 +256,7 @@ def parse_artists(arts_resp):
     
     result = []
     for item in arts_resp:
-        if 'error' not in a.keys():
+        if 'error' not in item.keys():
             for a in item['artists']:
                 arts_dict = { k: a[k] for k in ['id','name','genres','popularity'] }
             
@@ -288,7 +288,7 @@ def parse_albums(albs_resp):
     
     result = []
     for item in albs_resp:
-        if 'error' not in a.keys():
+        if 'error' not in item.keys():
             for a in item['albums']:
                 albs_dict = { k: a[k] for k in ['id','genres','name','popularity','release_date'] }
             
