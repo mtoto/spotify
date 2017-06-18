@@ -137,6 +137,121 @@ def update_json(list_of_files):
 
     return result
 
+
+""" Playlist functions """
+def get_playlist(href):
+
+    accesToken = access_token()
+    headers = {'Authorization': 'Bearer ' + accesToken }
+    params = {'fields': 'name,description,followers,href'}
+    
+    response = requests.get(href,headers = headers,
+                                     params = params)
+    data = response.json()
+    
+    return data
+    
+
+def parse_playlists(playlist_resps):
+    
+    result = []
+    for a in playlist_resps:
+        if 'error' not in a.keys():
+            play_dict = { k: a[k] for k in ['description','href','name'] }
+            
+            play_dict['playlist_followers'] = a['followers']['total']
+            play_dict['playlist_descr'] = play_dict.pop('description')
+            play_dict['playlist_href'] = play_dict.pop('href')
+            play_dict['playlist_name'] = play_dict.pop('name')
+
+            result.append(play_dict)
+            
+    return(result)
+
+""" Artists funcs"""
+def get_artists(list_of_artists):
+
+    accesToken = access_token()
+    headers = {'Authorization': 'Bearer ' + accesToken }
+    payload = {'limit': 50, 'ids': ','.join(list_of_artists) }
+    
+    response = requests.get("https://api.spotify.com/v1/artists", 
+                            headers = headers,
+                            params = payload)
+    data = response.json()
+
+    return data
+    
+    
+def parse_artists(arts_resp):
+    
+    result = []
+    for item in arts_resp:
+        if 'error' not in item.keys():
+            for a in item['artists']:
+                arts_dict = { k: a[k] for k in ['id','name','genres','popularity'] }
+            
+                arts_dict['artist_followers'] = a['followers']['total']
+                arts_dict['artist_id'] = arts_dict.pop('id')
+                arts_dict['artist_name'] = arts_dict.pop('name')
+                arts_dict['artist_genres'] = arts_dict.pop('genres')
+                arts_dict['artist_popularity'] = arts_dict.pop('popularity')
+
+                result.append(arts_dict)
+            
+    return(result)
+
+"""Album funcs"""
+def get_albums(list_of_albums):
+
+    accesToken = access_token()
+    headers = {'Authorization': 'Bearer ' + accesToken }
+    payload = {'limit': 50, 'ids': ','.join(list_of_albums) }
+    
+    response = requests.get("https://api.spotify.com/v1/albums", 
+                            headers = headers,
+                            params = payload)
+    data = response.json()
+
+    return data
+ 
+    
+def parse_albums(albs_resp):
+    
+    result = []
+    for item in albs_resp:
+        if 'error' not in item.keys():
+            for a in item['albums']:
+                albs_dict = { k: a[k] for k in ['id','genres','name','popularity','release_date'] }
+            
+                albs_dict['album_genres'] = albs_dict.pop('genres')
+                albs_dict['album_id'] = albs_dict.pop('id')
+                albs_dict['album_name'] = albs_dict.pop('name')
+                albs_dict['album_popularity'] = albs_dict.pop('popularity')
+                albs_dict['album_release_date'] = albs_dict.pop('release_date')
+                
+
+                d_arts = collections.defaultdict(list)
+                for i in a['artists']: 
+                        for k, v in i.items():
+                        
+                            if (k not in ('uri','type','external_urls')):
+                                d_arts[k].append(v)
+                            
+                            elif (k == 'external_urls'):
+                                d_arts['artist_album_urls'].append(v['spotify'])
+                                    
+                        d_arts['album_artist_id'] = d_arts.pop('id')
+                        d_arts['album_artist_name'] = d_arts.pop('name')
+                        d_arts['album_artist_href'] = d_arts.pop('href')
+                
+                d = dict(albs_dict,**d_arts)
+                result.append(d)
+                        
+            
+    return(result)
+
+
 """General functions"""
 
 def get_var_wrapper(file_s3, type_of_var='artist'):
@@ -206,115 +321,8 @@ def process_range(source, typeof = 'arts'):
         nested_albs = slice_per(source, 18)
         for ids in nested_albs:
             store.append(get_albums(ids))
-        
+                
     return store
 
-""" Playlist functions"""
-def get_playlist(href):
 
-    accesToken = access_token()
-    headers = {'Authorization': 'Bearer ' + accesToken }
-    params = {'fields': 'name,description,followers,href'}
-
-    response = requests.get(href,headers = headers,
-                                 params = params) 
-    data = response.json()
-
-    return data
-
-def parse_playlists(playlist_resps):
-    
-    result = []
-    for a in playlist_resps:
-        if 'error' not in a.keys():
-            play_dict = { k: a[k] for k in ['description','href','name'] }
-            
-            play_dict['playlist_followers'] = a['followers']['total']
-            play_dict['playlist_descr'] = play_dict.pop('description')
-            play_dict['playlist_href'] = play_dict.pop('href')
-            play_dict['playlist_name'] = play_dict.pop('name')
-
-            result.append(play_dict)
-            
-    return(result)
-
-""" Artists funcs"""
-def get_artists(list_of_artists):
-
-    accesToken = access_token()
-    headers = {'Authorization': 'Bearer ' + accesToken }
-    payload = {'limit': 50, 'ids': ','.join(list_of_artists) }
-    
-    response = requests.get("https://api.spotify.com/v1/artists", 
-                            headers = headers,
-                            params = payload)
-    data = response.json()
-
-    return data
-
-def parse_artists(arts_resp):
-    
-    result = []
-    for item in arts_resp:
-        if 'error' not in item.keys():
-            for a in item['artists']:
-                arts_dict = { k: a[k] for k in ['id','name','genres','popularity'] }
-            
-                arts_dict['artist_followers'] = a['followers']['total']
-                arts_dict['artist_id'] = arts_dict.pop('id')
-                arts_dict['artist_name'] = arts_dict.pop('name')
-                arts_dict['artist_genres'] = arts_dict.pop('genres')
-                arts_dict['artist_popularity'] = arts_dict.pop('popularity')
-
-            result.append(arts_dict)
-            
-    return(result)
-
-"""Album funcs"""
-def get_albums(list_of_albums):
-
-    accesToken = access_token()
-    headers = {'Authorization': 'Bearer ' + accesToken }
-    payload = {'limit': 50, 'ids': ','.join(list_of_albums) }
-    
-    response = requests.get("https://api.spotify.com/v1/albums", 
-                            headers = headers,
-                            params = payload)
-    data = response.json()
-
-    return data
-
-def parse_albums(albs_resp):
-    
-    result = []
-    for item in albs_resp:
-        if 'error' not in item.keys():
-            for a in item['albums']:
-                albs_dict = { k: a[k] for k in ['id','genres','name','popularity','release_date'] }
-            
-                albs_dict['album_genres'] = albs_dict.pop('genres')
-                albs_dict['album_id'] = albs_dict.pop('id')
-                albs_dict['album_name'] = albs_dict.pop('name')
-                albs_dict['album_popularity'] = albs_dict.pop('popularity')
-                albs_dict['album_release_date'] = albs_dict.pop('release_date')
-
-            d_arts = collections.defaultdict(list)
-            for i in a['artists']: 
-                    for k, v in i.items():
-                        
-                        if (k not in ('uri','type','external_urls')):
-                            d_arts[k].append(v)
-                            
-                        elif (k == 'external_urls'):
-                            d_arts['artist_album_urls'].append(v['spotify'])
-                                    
-            d_arts['album_artist_id'] = d_arts.pop('id')
-            d_arts['album_artist_name'] = d_arts.pop('name')
-            d_arts['album_artist_href'] = d_arts.pop('href')
-                
-            d = dict(albs_dict, **d_arts)
-    
-            result.append(d)
-            
-    return(result)
           
