@@ -173,7 +173,7 @@ def get_artists(list_of_artists):
 
     accesToken = access_token()
     headers = {'Authorization': 'Bearer ' + accesToken }
-    payload = {'limit': 50, 'ids': ','.join(list_of_artists) }
+    payload = {'limit': 20, 'ids': ','.join(list_of_artists) }
     
     response = requests.get("https://api.spotify.com/v1/artists", 
                             headers = headers,
@@ -318,7 +318,7 @@ def process_range(source, typeof = 'arts'):
             store.append(get_playlist(ids))
             
     elif (typeof=='albums'):
-        nested_albs = slice_per(source, 18)
+        nested_albs = slice_per(source, 8)
         for ids in nested_albs:
             store.append(get_albums(ids))
                 
