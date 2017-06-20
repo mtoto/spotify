@@ -143,7 +143,7 @@ def get_playlist(href):
 
     accesToken = access_token()
     headers = {'Authorization': 'Bearer ' + accesToken }
-    params = {'fields': 'name,description,followers,href'}
+    params = {'fields': 'id,name,description,followers,href'}
     
     response = requests.get(href,headers = headers,
                                      params = params)
