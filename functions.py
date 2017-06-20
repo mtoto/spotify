@@ -143,7 +143,7 @@ def get_playlist(href):
 
     accesToken = access_token()
     headers = {'Authorization': 'Bearer ' + accesToken }
-    params = {'fields': 'id,name,description,followers,href'}
+    params = {'fields': 'id,name,description,followers'}
     
     response = requests.get(href,headers = headers,
                                      params = params)
@@ -157,12 +157,12 @@ def parse_playlists(playlist_resps):
     result = []
     for a in playlist_resps:
         if 'error' not in a.keys():
-            play_dict = { k: a[k] for k in ['description','href','name'] }
+            play_dict = { k: a[k] for k in ['description','name','id'] }
             
             play_dict['playlist_followers'] = a['followers']['total']
             play_dict['playlist_descr'] = play_dict.pop('description')
-            play_dict['playlist_href'] = play_dict.pop('href')
             play_dict['playlist_name'] = play_dict.pop('name')
+            play_dict['playlist_id'] = play_dict.pop('id')
 
             result.append(play_dict)
             
