@@ -5,7 +5,7 @@ import collections
 import os
 import boto3
 import math
-from spotify_creds import *
+from spotify_creds_pl import *
 
 """ Get acces token """
 def access_token():

@@ -3,7 +3,7 @@ import luigi
 import json
 from luigi.s3 import S3Target, S3Client
 from datetime import date, timedelta
-from functions import *
+from functions_pl import *
 import pandas as pd
 
 class local_raw_json(luigi.ExternalTask):
