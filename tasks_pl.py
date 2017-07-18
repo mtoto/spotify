@@ -79,12 +79,13 @@ class spotify_morning_playlist(luigi.Task):
     def run(self):
         
         with self.input().open('r') as in_file:
-            res_code = create_playlist(in_file, self.date)
-              
+            res_code = create_playlist(in_file, self.date)      
         # write to file if succesful
         if (res_code == 201):
             with self.output().open('w') as out_file:
                 json.dump(res_code, out_file)
+
+if __name__ == '__main__':
+    luigi.run()
         
            
-                 
