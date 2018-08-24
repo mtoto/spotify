@@ -5,29 +5,31 @@ import collections
 import os
 import boto3
 import math
-
 from spotify_creds import *
+import pandas as pd
 
-""" Get acces token """
+# Get access token
 def access_token():
     
-    grant_type = 'refresh_token'
-
-    body_params = {'grant_type' : grant_type,
-                   'refresh_token' : refresh_token}
+    body_params = {'grant_type' : 'refresh_token',
+                'refresh_token' : refresh_token}
 
     url = 'https://accounts.spotify.com/api/token'
-    response = requests.post(url, data = body_params, auth = (client_id, client_secret))
+    response = requests.post(url, 
+                             data = body_params, 
+                             auth = (client_id, client_secret))
+    
     response_dict = json.loads(response.content)
     accessToken = response_dict.get('access_token')
 
     return accessToken
     
-""" Get recent songs """
+# Get most recent songs and append the response
+# to a new json file every day
 def download_data():
 
     current_time = datetime.datetime.now().strftime('%Y-%m-%d')
-    filename = '/home/pi/home_iot/spotify/json/spotify_tracks_%s.json' % current_time
+    filename = '/spotify/json/spotify_tracks_%s.json' % current_time
     
     accesToken = access_token()
     headers = {'Authorization': 'Bearer ' + accesToken }
@@ -41,288 +43,148 @@ def download_data():
     with open(filename, 'a') as f:
         json.dump(data['items'], f)
         f.write('\n')
+        
+# This function takes a list of track uri's 
+# to replace songs in my morning playlist
+# and returns the status code of the put request.
+def replace_tracks(tracks, url):
     
-""" Convert json to a list of dicts"""
-def json_parser(file):
+    #url = 'https://api.spotify.com/v1/users/1170891844/playlists/6a2QBfOgCqFQLN08FUxpj3/tracks'
+    accesToken = access_token()
+    headers = {'Authorization': 'Bearer ' + accesToken,
+               'Content-Type':'application/json'}
+    data = {"uris": ','.join(tracks)}
+
+    response = requests.put(url, headers = headers,
+                            params = data)
+                            
+    return response.status_code
+        
+# Cleaner function to get rid of redundancy
+def deduplicate(file):
     result =[]
-    with open(file) as f:
-        for line in f:
-            data = json.loads(line)
-            result.extend(data)
-    return(result)
-
-"""Parse json so it can easily be converted to a dataframe"""
-def parse_json(file): 
     
-    dict_list = json_parser(file)
+    for line in file:
+        data = json.loads(line)
+        result.extend(data)
+    
+    result = {i['played_at']:i for i in result}.values()
+    return result
 
+#Parse json so it can easily be converted to a dataframe
+def parse_json(file): 
     results = []
-    track_cols = ['name','uri','explicit','preview_url',
-                  'track_number','disc_number','href',
-                  'duration_ms','type','id']
+    track_cols = ['name','uri','explicit','duration_ms','type','id']
 
-    for item in dict_list:
+    for item in file:
         
-        d_time = {'played_at' : item['played_at'] }
+        d_time = {'played_at' : item['played_at']}
         
-        if item['context'] is not None:
-            
-            d_context = item['context'] 
-            d_context['playlist_url'] = item['context']['external_urls']['spotify']
-            d_context['playlist_href'] = item['context']['href'] # deal with other duplicate names
-            d_context.pop('external_urls', None)
-            d_context.pop('href', None)
-   
-        else:
-            d_context = {'spotify_external_url': None, 'type' : None, 
-                         'uri' : None, 'playlist_href': None}
-        
-        for key in item.keys():
-            
+        for key in item.keys(): 
             if (key == 'track'):
-              
                 track = item[key]
                 d_arts = collections.defaultdict(list)
                 
                 for i in track['artists']: 
-                    for k, v in i.items():
-                        
-                        if (k != 'external_urls'):
-                            d_arts[k].append(v)
+                    for k, v in i.items(): 
+                        if (k in ['id','name']):
+                            d_arts['artist_' + k].append(v)
                             
-                        elif (k == 'external_urls'):
-                            d_arts['artist_urls'].append(v['spotify'])
-                                    
-                d_arts['artist_id'] = d_arts.pop('id')
-                d_arts['artist_name'] = d_arts.pop('name')
-                d_arts['artist_href'] = d_arts.pop('href')
-
-                
                 track_sub = { k: track[k] for k in track_cols }
-                track_sub['track_name'] = track_sub.pop('name')
-                track_sub['track_id'] = track_sub.pop('id')
+                
+                for k,v in track_sub.items():
+                    if (k in ['id','name']):
+                        track_sub['track_' + k] = track_sub.pop(k)
             
         d = dict(track_sub, **d_arts)
         d.update(d_time)
-        d.update(d_context)
 
         results.append(d)
-        
-        result = {v['played_at']:v for v in results}.values()
-             
-    return(result)
+                     
+    return results
 
-""" Merge json files into one list of dicts from directory"""
-def merge_jsons(dir):
-    results = []
+# Retrieve all of my playlists, based on
+# spotify id (string)
+def my_playlists(spotify_id):
+    my_playlists = list()
     
-    for filename in os.listdir(dir):
-        if filename.endswith('.json'):
-            parsed = json_parser(dir+'/'+filename)
-            results.extend(parsed)
-            
-    result = {v['played_at']:v for v in results}.values()
-            
-    return result
-
-""" Merge json files into one list of dicts from list of filenames"""
-def update_json(list_of_files):
-    results = []
-    
-    for i in list_of_files:
-            parsed = json_parser(i)
-            results.extend(parsed)
-          
-    result = {v['played_at']:v for v in results}.values()
-
-    return result
-
-
-""" Playlist functions """
-def get_playlist(href):
-
+    url = 'https://api.spotify.com/v1/me/playlists'  
     accesToken = access_token()
     headers = {'Authorization': 'Bearer ' + accesToken }
-    params = {'fields': 'id,name,description,followers'}
-    
-    response = requests.get(href,headers = headers,
-                                     params = params)
-    data = response.json()
-    
-    return data
-    
-
-def parse_playlists(playlist_resps):
-    
-    result = []
-    for a in playlist_resps:
-        if 'error' not in a.keys():
-            play_dict = { k: a[k] for k in ['description','name','id'] }
-            
-            play_dict['playlist_followers'] = a['followers']['total']
-            play_dict['playlist_descr'] = play_dict.pop('description')
-            play_dict['playlist_name'] = play_dict.pop('name')
-            play_dict['playlist_id'] = play_dict.pop('id')
-
-            result.append(play_dict)
-            
-    return(result)
-
-""" Artists funcs"""
-def get_artists(list_of_artists):
-
-    accesToken = access_token()
-    headers = {'Authorization': 'Bearer ' + accesToken }
-    payload = {'limit': 20, 'ids': ','.join(list_of_artists) }
-    
-    response = requests.get("https://api.spotify.com/v1/artists", 
+    response = requests.get(url, 
                             headers = headers,
-                            params = payload)
+                            params = {'limit':50})
     data = response.json()
-
-    return data
     
-    
-def parse_artists(arts_resp):
-    
-    result = []
-    for item in arts_resp:
-        if 'error' not in item.keys():
-            for a in item['artists']:
-                arts_dict = { k: a[k] for k in ['id','name','genres','popularity'] }
+    for i in data['items']:
+        if i['owner']['id'] == spotify_id:
+            my_playlists.append(i['href'])
             
-                arts_dict['artist_followers'] = a['followers']['total']
-                arts_dict['artist_id'] = arts_dict.pop('id')
-                arts_dict['artist_name'] = arts_dict.pop('name')
-                arts_dict['artist_genres'] = arts_dict.pop('genres')
-                arts_dict['artist_popularity'] = arts_dict.pop('popularity')
+    return(my_playlists)
 
-                result.append(arts_dict)
-            
-    return(result)
-
-"""Album funcs"""
-def get_albums(list_of_albums):
+# Get relevant contents of the playlists
+def get_playlist_tracks(href):
 
     accesToken = access_token()
     headers = {'Authorization': 'Bearer ' + accesToken }
-    payload = {'limit': 50, 'ids': ','.join(list_of_albums) }
+    #params = {'fields': 'id,name,description,followers'}
     
-    response = requests.get("https://api.spotify.com/v1/albums", 
-                            headers = headers,
-                            params = payload)
+    response = requests.get(href,headers = headers)
     data = response.json()
-
+    
     return data
- 
+
+# Return all tracks together with the date added
+# from all of my playlists.
+def all_playlist_tracks(playlists):
     
-def parse_albums(albs_resp):
+    songs = list()
+    tracks = [get_playlist_tracks(i + '/tracks') for i in playlists]
     
-    result = []
-    for item in albs_resp:
-        if 'error' not in item.keys():
-            for a in item['albums']:
-                albs_dict = { k: a[k] for k in ['id','genres','name','popularity','release_date'] }
-            
-                albs_dict['album_genres'] = albs_dict.pop('genres')
-                albs_dict['album_id'] = albs_dict.pop('id')
-                albs_dict['album_name'] = albs_dict.pop('name')
-                albs_dict['album_popularity'] = albs_dict.pop('popularity')
-                albs_dict['album_release_date'] = albs_dict.pop('release_date')
+    for t in range(len(tracks)):
+            for i in range(len(tracks[t]["items"])):
+                try:
+                    songs.append((tracks[t]["items"][i]["added_at"],
+                                  tracks[t]["items"][i]["track"]["uri"]))
+                    pass
+                except:
+                    continue
                 
+    return songs
 
-                d_arts = collections.defaultdict(list)
-                for i in a['artists']: 
-                        for k, v in i.items():
-                        
-                            if (k not in ('uri','type','external_urls')):
-                                d_arts[k].append(v)
-                            
-                            elif (k == 'external_urls'):
-                                d_arts['artist_album_urls'].append(v['spotify'])
-                                    
-                        d_arts['album_artist_id'] = d_arts.pop('id')
-                        d_arts['album_artist_name'] = d_arts.pop('name')
-                        d_arts['album_artist_href'] = d_arts.pop('href')
+# This function updates my recently discovered 
+# tracks playlist with the last 30 songs I added.
+def create_new_tracks_playlist(dataset):
+    
+    df = pd.DataFrame(dataset, columns=['date', 'uri'])
+    df["date"] = pd.to_datetime(df["date"])
+    
+    df = df.sort_values('date', ascending = False)
+    songs = df["uri"].unique().tolist()[0:30]
                 
-                d = dict(albs_dict,**d_arts)
-                result.append(d)
-                        
-            
-    return(result)
+    # make api call
+    res_code = replace_tracks(songs, 'https://api.spotify.com/v1/users/1170891844/playlists/7BLadDfw4fPCVY4bgfTIOI/tracks')
+    return res_code
 
-
-"""General functions"""
-
-def get_var_wrapper(file_s3, type_of_var='artist'):
+# This function reads in the weekly dataset 
+# as a pandas dataframe, outputs the list of 
+# top ten tracks and feeds them to replace_tracks()
+def create_playlist(dataset, date):
     
-    if (type_of_var=='album'):
-        key, typeof1, typeof2, parse_function = ("uri","string","albums",parse_albums)
+    data = pd.read_json(dataset)          
+    data['played_at'] = pd.to_datetime(data['played_at'])
     
-    elif (type_of_var=='artist'): 
-        key, typeof1, typeof2, parse_function = ("artist_id","list","arts",parse_artists)
-    
-    elif (type_of_var=='playlist'): 
-        key, typeof1, typeof2, parse_function = ("playlist_href","url","playlist",parse_playlists)
-    
-    date_today = datetime.date.today() - datetime.timedelta(1)
-    list_of_var = get_unique_vals('myspotifydata', 
-                                  filename=file_s3,
-                                  key=key,
-                                  typeof=typeof1)
-    list_of_var_resp = process_range(list_of_var,typeof=typeof2)
-    return parse_function(list_of_var_resp)
-
-def get_unique_vals(bucket,filename,key, typeof = 'list'):
-    
-    s3 = boto3.resource('s3')
-    content_object = s3.Object(bucket, filename)
-    file_content = content_object.get()['Body'].read().decode('utf-8')
-    json_content = json.loads(file_content)
-    
-    if (typeof=='list'):
-        t=[d[key] for d in json_content]
-        l=[item for sublist in t for item in sublist]
-        l2=[x for x in set(l) if x is not None]
-        result = l2
+    data = data.set_index('played_at') \
+               .between_time('7:00','12:00')
         
-    elif(typeof=='url'):
-        t=[d[key] for d in json_content]
-        l=[x for x in set(t) if x is not None]
-        result=[x for x in l if 'null' not in x]
-        
-    elif(typeof=='string'):
-        t=[d[key] for d in json_content]
-        l=[x for x in set(t) if x is not None]
-        l2=[x for x in l if 'album' in x]
-        result=[s.partition('album:')[2] for s in l2 if 'album' in s]
-        
-    return(result)
-
-# thanks! https://stackoverflow.com/a/26945303/4964651
-def slice_per(source, limit):
-    step = int(math.floor(len(source) / limit))
-    return [source[i::step] for i in range(step)]
-
-def process_range(source, typeof = 'arts'):
+    data = data[data.index > str(date)]
+    # aggregate data
+    songs = data['uri'].value_counts()\
+                       .nlargest(10) \
+                       .index \
+                       .get_values() \
+                       .tolist()
+    # make api call
+    res_code = replace_tracks(songs,               'https://api.spotify.com/v1/users/1170891844/playlists/6a2QBfOgCqFQLN08FUxpj3/tracks')
     
-    store = []
-
-    if (typeof=='arts'):
-        nested_arts = slice_per(source, 48)
-        for ids in nested_arts:
-            store.append(get_artists(ids))
-            
-    elif (typeof=='playlist'):
-        for ids in source:
-            store.append(get_playlist(ids))
-            
-    elif (typeof=='albums'):
-        nested_albs = slice_per(source, 8)
-        for ids in nested_albs:
-            store.append(get_albums(ids))
-                
-    return store
-
-
-          
+    return res_code
