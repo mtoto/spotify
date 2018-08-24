@@ -1,0 +1,11 @@
+name: spotify_luigi
+dependencies:
+  - ipython
+  - ipykernel
+  - jupyter
+  - notebook
+  - luigi
+  - requests
+  - boto3
+  - pandas
+  - python=2.7
