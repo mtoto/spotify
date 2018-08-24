@@ -5,7 +5,7 @@ import collections
 import os
 import boto3
 import math
-from spotify_creds_pl import *
+from spotify_creds import *
 import pandas as pd
 
 """ Get acces token """
@@ -21,7 +21,7 @@ def access_token():
                              data = body_params, 
                              auth = (client_id, client_secret))
     
-    response_dict = json.loads(response.content)
+    response_dict = json.loads(response.content.decode('utf-8'))
     accessToken = response_dict.get('access_token')
 
     return accessToken
@@ -60,7 +60,7 @@ def replace_tracks(tracks):
     return response.status_code
         
 # Cleaner function to get rid of redundacny
-def json_parser(file):
+def deduplicate(file):
     result =[]
     
     for line in file:
@@ -68,11 +68,10 @@ def json_parser(file):
         result.extend(data)
     
     result = {i['played_at']:i for i in result}.values()
-    return(result)
+    return result
 
 """Parse json so it can easily be converted to a dataframe"""
 def parse_json(file): 
-    # TO DO: need to add type from context, the track type is useless!
     results = []
     track_cols = ['name','uri','explicit','duration_ms','type','id']
 

@@ -19,19 +19,19 @@ class spotify_clean_aws(luigi.Task):
     
     def requires(self):
         return self.clone(local_raw_json)
-
+    
+    def run(self):   
+        with self.input().open('r') as in_file:
+            data = deduplicate(in_file)
+            
+        with self.output().open('w') as out_file:
+            json.dump(data, out_file)
+            
     def output(self):
         client = S3Client(host = 's3.us-east-2.amazonaws.com')
         return S3Target('s3://myspotifydata/spotify_tracks_%s.json' % 
                         self.date.strftime('%Y-%m-%d'), 
                         client=client)
-
-    def run(self):   
-        with self.input().open('r') as in_file:
-            data = json_parser(in_file)
-            
-        with self.output().open('w') as out_file:
-            json.dump(data, out_file)
             
 # Task to parse relevant fields and merge a week of data
 class spotify_merge_weekly_aws(luigi.Task):
@@ -40,13 +40,7 @@ class spotify_merge_weekly_aws(luigi.Task):
 
     def requires(self):
         return [spotify_clean_aws(i) for i in [self.date + timedelta(x) for x in range(self.daterange)]]
-        
-    def output(self):
-        client = S3Client(host = 's3.us-east-2.amazonaws.com')
-        return S3Target('s3://myspotifydata/spotify_week_%s.json' % 
-                        (self.date.strftime('%Y-%m-%d') + '_' + str(self.daterange)), 
-                        client=client)
-    
+     
     def run(self):
         results = []
         for file in self.input():
@@ -62,6 +56,13 @@ class spotify_merge_weekly_aws(luigi.Task):
         with self.output().open('w') as out_file:
             json.dump(result, out_file)
             
+    def output(self):
+        client = S3Client(host = 's3.us-east-2.amazonaws.com')
+        return S3Target('s3://myspotifydata/spotify_week_%s.json' % 
+                        (self.date.strftime('%Y-%m-%d') + '_' + str(self.daterange)), 
+                        client=client)
+    
+            
 # Task to aggregate weekly data and create playlist
 class spotify_morning_playlist(luigi.Task):
     date = luigi.DateParameter(default = (date.today()-timedelta(8)))
@@ -69,12 +70,6 @@ class spotify_morning_playlist(luigi.Task):
 
     def requires(self):
         return self.clone(spotify_merge_weekly_aws)
-    
-    def output(self):
-        client = S3Client(host = 's3.us-east-2.amazonaws.com')
-        return S3Target('s3://myspotifydata/spotify_top10_%s.json' % 
-                        (self.date.strftime('%Y-%m-%d') + '_' + str(self.daterange)), 
-                        client=client)
     
     def run(self):
         
@@ -84,6 +79,13 @@ class spotify_morning_playlist(luigi.Task):
         if (res_code == 201):
             with self.output().open('w') as out_file:
                 json.dump(res_code, out_file)
+    
+    def output(self):
+        client = S3Client(host = 's3.us-east-2.amazonaws.com')
+        return S3Target('s3://myspotifydata/spotify_top10_%s.json' % 
+                        (self.date.strftime('%Y-%m-%d') + '_' + str(self.daterange)), 
+                        client=client)
+
 
 if __name__ == '__main__':
     luigi.run()
